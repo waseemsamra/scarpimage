@@ -170,12 +170,16 @@ def create_app():
         if session_id not in scraping_sessions or not scraping_sessions[session_id].data:
             return jsonify({'error': 'No data to determine columns'}), 404
 
-        # Get all unique keys from all product data
-        columns = set()
-        for item in scraping_sessions[session_id].data:
-            columns.update(item.keys())
-        
-        return jsonify(list(columns))
+        session = scraping_sessions[session_id]
+        df = pd.DataFrame(session.data)
+
+        # Expand image_urls before determining columns
+        if 'image_urls' in df.columns:
+            image_urls_df = df['image_urls'].apply(pd.Series)
+            image_urls_df = image_urls_df.rename(columns = lambda x : f'image_url_{x + 1}')
+            df = pd.concat([df.drop(['image_urls'], axis=1), image_urls_df], axis=1)
+
+        return jsonify(list(df.columns))
 
     @app.route('/api/export/<session_id>', methods=['POST'])
     def export_data(session_id):
@@ -188,25 +192,23 @@ def create_app():
             return jsonify({'error': 'No data to export'}), 400
         
         export_format = request.json.get('format', 'csv')
-        selected_columns = request.json.get('columns') # Can be None
+        selected_columns = request.json.get('columns')
         
         try:
             df = pd.DataFrame(session.data)
-
-            # If columns are selected, filter the DataFrame
-            if selected_columns:
-                # Also handle the case where image URLs are split
-                image_cols = [c for c in df.columns if c.startswith('image_url_')]
-                columns_to_keep = selected_columns + image_cols
-                df = df[[c for c in columns_to_keep if c in df.columns]]
             
+            # First, expand the image_urls column into separate columns
             if 'image_urls' in df.columns:
                 image_urls_df = df['image_urls'].apply(pd.Series)
                 image_urls_df = image_urls_df.rename(columns = lambda x : f'image_url_{x + 1}')
                 df = pd.concat([df.drop(['image_urls'], axis=1), image_urls_df], axis=1)
 
+            if selected_columns:
+                valid_columns = [col for col in selected_columns if col in df.columns]
+                df = df[valid_columns]
+            
             if export_format == 'csv':
-                filename = f'shopify_products_{session_id}.csv'
+                filename = f'scraped_products_{session_id}.csv'
                 filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
                 df.to_csv(filepath, index=False, encoding='utf-8')
                 
@@ -218,7 +220,7 @@ def create_app():
                 )
                 
             elif export_format == 'excel':
-                filename = f'shopify_products_{session_id}.xlsx'
+                filename = f'scraped_products_{session_id}.xlsx'
                 filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
                 df.to_excel(filepath, index=False)
                 
@@ -230,9 +232,9 @@ def create_app():
                 )
                 
             elif export_format == 'json':
-                filename = f'shopify_products_{session_id}.json'
+                filename = f'scraped_products_{session_id}.json'
                 filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-                df.to_json(filepath, orient='records') # More standard JSON
+                df.to_json(filepath, orient='records', indent=4)
                 
                 return send_file(
                     filepath,
@@ -252,7 +254,7 @@ def create_app():
             if not os.path.exists(session_folder):
                 return jsonify({'error': 'No images found'}), 404
             
-            zip_path = os.path.join(current_app.config['UPLOAD_FOLDER'], f'shopify_images_{session_id}.zip')
+            zip_path = os.path.join(current_app.config['UPLOAD_FOLDER'], f'scraped_images_{session_id}.zip')
             
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
                 for root, dirs, files in os.walk(session_folder):
@@ -264,7 +266,7 @@ def create_app():
             return send_file(
                 zip_path,
                 as_attachment=True,
-                download_name=f'shopify_images_{session_id}.zip',
+                download_name=f'scraped_images_{session_id}.zip',
                 mimetype='application/zip'
             )
             
@@ -284,24 +286,19 @@ def create_app():
                 url = 'https://' + url
             
             scraper = ShopifyScraper()
-            is_shopify = scraper.is_shopify_store(url)
+            is_shopify, message = scraper.is_shopify_store(url)
             
-            if is_shopify:
-                return jsonify({
-                    'valid': True,
-                    'message': 'Shopify store detected',
-                    'url': url
-                })
-            else:
-                return jsonify({
-                    'valid': False,
-                    'message': 'This might not be a Shopify store or is not accessible'
-                })
+            return jsonify({
+                'valid': True, # Always true if accessible
+                'is_shopify': is_shopify,
+                'message': message,
+                'url': url
+            })
                 
         except Exception as e:
             return jsonify({
                 'valid': False,
-                'message': f'Error: {str(e)}'
+                'message': f'An error occurred: {str(e)}'
             })
 
     return app
