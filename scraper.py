@@ -291,7 +291,7 @@ class ShopifyScraper:
         return product_data
     
     def extract_from_product_json(self, soup, product_data):
-        """Extract product data from Shopify\'s product JSON in script tags"""
+        """Extract product data from Shopify's product JSON in script tags"""
         try:
             for script in soup.find_all('script'):
                 if not script.string:
@@ -299,8 +299,8 @@ class ShopifyScraper:
                 
                 # More robust patterns to find product JSON
                 patterns = [
-                    r'var\s+meta\s*=\s*{\s*"product"\s*:\s*({.*?})\s*}\s*;',
-                    r'new\s+Shopify\.OptionSelectors\([^,]+,\s*{\s*product\s*:\s*({.*?}),.*?}\);'
+                    r'var\s+meta\s*=\s*{\s*"product"\s*:\s*({.*?})\s*};',
+                    r'new\s+Shopify\.OptionSelectors\([^,]+,\s*{\s*product\s*:\s*({.*?}),.*?}\);',
                     r'"product":\s*({.*)'
                 ]
                 
