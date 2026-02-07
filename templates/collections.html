@@ -1,0 +1,130 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-briefcase me-3"></i>Scraping Jobs</h1>
+    <p class="lead">Manage your scraping jobs</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h3 class="card-title mb-4">
+            <i class="fas fa-history me-2"></i>All Jobs
+            <span class="badge bg-info ms-2">{{ jobs|length }}</span>
+        </h3>
+        
+        {% if jobs %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Job ID</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th>Products</th>
+                            <th>Started</th>
+                            <th>Completed</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in jobs %}
+                        <tr>
+                            <td><code>{{ job.job_id }}</code></td>
+                            <td>{{ job.category }}</td>
+                            <td>
+                                {% if job.status == 'completed' %}
+                                    <span class="badge bg-success">Completed</span>
+                                {% elif job.status == 'running' %}
+                                    <span class="badge bg-warning">Running</span>
+                                {% elif job.status == 'error' %}
+                                    <span class="badge bg-danger">Error</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ job.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ job.scraped_products }}</td>
+                            <td>{{ job.start_time[:19].replace('T', ' ') if job.start_time else 'N/A' }}</td>
+                            <td>{{ job.end_time[:19].replace('T', ' ') if job.end_time else 'N/A' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="viewJob('{{ job.job_id }}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <p class="lead">No jobs found</p>
+                <p class="text-muted">Start a scraping job from the main page</p>
+                <a href="/" class="btn btn-primary mt-3">
+                    <i class="fas fa-plus me-2"></i>Start New Scraping
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // View job details
+    async function viewJob(jobId) {
+        try {
+            const response = await fetch(`/job/${jobId}/results`);
+            const data = await response.json();
+            
+            if (data.success) {
+                showJobDetailsModal(data);
+            } else {
+                showToast(data.error || 'Error loading job details', 'error');
+            }
+        } catch (error) {
+            showToast('Error loading job details', 'error');
+        }
+    }
+
+    // Show job details modal (copied from dashboard.html)
+    function showJobDetailsModal(data) {
+        const modalHTML = `
+            <div class="modal fade" id="jobModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Job Details - ${data.job.job_id}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            ...
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const modalContainer = document.createElement('div');
+        modalContainer.innerHTML = modalHTML;
+        document.body.appendChild(modalContainer);
+        
+        const modal = new bootstrap.Modal(document.getElementById('jobModal'));
+        modal.show();
+        
+        modal._element.addEventListener('hidden.bs.modal', function() {
+            modalContainer.remove();
+        });
+    }
+
+    // Toast notification (copied from dashboard.html)
+    function showToast(message, type = 'info') {
+        // ... implementation from dashboard.html
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,20 @@
+
+{% extends "layout.html" %}
+{% block content %}
+    <h2>Scraped Products:</h2>
+    {% if products %}
+        <ul>
+        {% for product in products %}
+            <li>
+                <img src="{{ product.image }}" alt="{{ product.name }}" width="100">
+                <h3>{{ product.name }}</h3>
+                <p>Price: {{ product.price }}</p>
+                <p>{{ product.description }}</p>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No products found, or the scraper needs to be adjusted for this website.</p>
+    {% endif %}
+    <a href="/">Scrape another site</a>
+{% endblock %}

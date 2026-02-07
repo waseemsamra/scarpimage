@@ -1,0 +1,158 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-download me-3"></i>Downloads</h1>
+    <p class="lead">Available files for download</p>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="card-title mb-0">
+                <i class="fas fa-file-excel me-2"></i>Downloadable Files
+                <span class="badge bg-success ms-2">{{ files|length }}</span>
+            </h3>
+            <div>
+                <button class="btn btn-sm btn-outline-danger" onclick="clearFiles()">
+                    <i class="fas fa-trash me-1"></i>Clear All
+                </button>
+                <a href="{{ url_for('main.downloads') }}" class="btn btn-sm btn-outline-secondary ms-2">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                </a>
+            </div>
+        </div>
+        
+        {% if files %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Size</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                        <tr>
+                            <td>
+                                <i class="fas fa-file-excel text-success me-2"></i>
+                                <strong>{{ file.name }}</strong>
+                            </td>
+                            <td>{{ file.size }}</td>
+                            <td>{{ file.created }}</td>
+                            <td>
+                                <a href="{{ file.download_url }}" class="btn btn-sm btn-success me-1" download>
+                                    <i class="fas fa-download me-1"></i>Download
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteFile('{{ file.name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <p class="lead">No downloadable files yet</p>
+                <p class="text-muted">Complete a scraping job to see files here</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Clear all files
+    async function clearFiles() {
+        if (confirm('Are you sure you want to delete all downloaded files?')) {
+            try {
+                const response = await fetch('/clear-files', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(`Deleted ${data.deleted.length} files`, 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showToast(data.error || 'Error clearing files', 'error');
+                }
+            } catch (error) {
+                showToast('Error clearing files', 'error');
+            }
+        }
+    }
+    
+    // Delete single file
+    async function deleteFile(filename) {
+        if (confirm(`Are you sure you want to delete ${filename}?`)) {
+            try {
+                const response = await fetch(`/delete-file/${filename}`, {
+                    method: 'POST',
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showToast(data.error || 'Error deleting file', 'error');
+                }
+            } catch (error) {
+                showToast('Error deleting file', 'error');
+            }
+        }
+    }
+
+    // Toast notification
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            z-index: 9999;
+            border-left: 5px solid ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8'};
+        `;
+        
+        const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+        const color = type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#17a2b8';
+        
+        toast.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas ${icon} me-3" style="color: ${color};"></i>
+                <div>${message}</div>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+</script>
+{% endblock %}

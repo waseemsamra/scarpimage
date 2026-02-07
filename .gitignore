@@ -1,1 +1,19 @@
+# Environments
+.env
 .venv
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Other
+.DS_Store

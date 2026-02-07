@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify Product Scraper</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-store"></i>
+                <h1>Shopify Scraper Pro</h1>
+            </div>
+            <p class="tagline">Extract products, images & data from any Shopify store</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Input Section -->
+            <div class="card input-section">
+                <h2><i class="fas fa-link"></i> Enter Shopify Store URL</h2>
+                
+                <div class="url-input-group">
+                    <input 
+                        type="url" 
+                        id="urlInput" 
+                        placeholder="https://example.myshopify.com or https://store.com/collections/all"
+                        autocomplete="off"
+                    >
+                    <button id="validateBtn" class="btn btn-secondary">
+                        <i class="fas fa-check"></i> Validate
+                    </button>
+                </div>
+                
+                <div class="url-validation" id="validationResult"></div>
+                
+                <div class="options-grid">
+                    <div class="option">
+                        <label for="maxProducts">
+                            <i class="fas fa-boxes"></i> Max Products
+                        </label>
+                        <input type="number" id="maxProducts" min="1" max="1000" value="50">
+                    </div>
+                    
+                    <div class="option">
+                        <label for="delay">
+                            <i class="fas fa-clock"></i> Delay (seconds)
+                        </label>
+                        <input type="number" id="delay" min="0.5" max="10" step="0.5" value="1">
+                    </div>
+                    
+                    <div class="option">
+                        <label for="downloadImages">
+                            <i class="fas fa-images"></i> Download Images
+                        </label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="downloadImages" checked>
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </div>
+
+                    <div class="option">
+                        <label for="stockFilter">
+                            <i class="fas fa-filter"></i> Stock Status
+                        </label>
+                        <select id="stockFilter">
+                            <option value="all">All</option>
+                            <option value="in_stock">In Stock</option>
+                            <option value="out_of_stock">Out of Stock</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button id="scrapeBtn" class="btn btn-primary btn-large">
+                        <i class="fas fa-play"></i> Start Scraping
+                    </button>
+                    <button id="stopBtn" class="btn btn-danger btn-large" disabled>
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="card progress-section">
+                <h2><i class="fas fa-chart-line"></i> Progress</h2>
+                
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">0%</div>
+                </div>
+                
+                <div class="status-message" id="statusMessage">
+                    Ready to scrape. Enter a Shopify URL above.
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fas fa-box-open"></i>
+                        <div class="stat-content">
+                            <div class="stat-value" id="productsCount">0</div>
+                            <div class="stat-label">Products</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <i class="fas fa-image"></i>
+                        <div class="stat-content">
+                            <div class="stat-value" id="imagesCount">0</div>
+                            <div class="stat-label">Images</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <i class="fas fa-bolt"></i>
+                        <div class="stat-content">
+                            <div class="stat-value" id="scrapedCount">0</div>
+                            <div class="stat-label">Scraped</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <i class="fas fa-hourglass-half"></i>
+                        <div class="stat-content">
+                            <div class="stat-value" id="statusBadge">Idle</div>
+                            <div class="stat-label">Status</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="card results-section">
+                <div class="results-header">
+                    <h2><i class="fas fa-list"></i> Scraped Results</h2>
+                    <div class="export-buttons">
+                        <button id="exportCsv" class="btn btn-success" disabled>
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                        <button id="exportExcel" class="btn btn-success" disabled>
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                        <button id="exportJson" class="btn btn-success" disabled>
+                            <i class="fas fa-file-code"></i> JSON
+                        </button>
+                        <button id="exportImages" class="btn btn-info" disabled>
+                            <i class="fas fa-images"></i> Images
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Title</th>
+                                <th>Price</th>
+                                <th>Availability</th>
+                                <th>Images</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody">
+                            <tr>
+                                <td colspan="6" class="empty-state">
+                                    <i class="fas fa-search"></i>
+                                    <p>No data yet. Start scraping to see results here.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="data-preview" id="dataPreview">
+                    <div class="preview-header">
+                        <h3>Data Preview</h3>
+                        <button class="btn btn-small" onclick="closePreview()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <pre id="previewContent"></pre>
+                </div>
+            </div>
+
+            <!-- Product Details Modal -->
+            <div class="modal" id="productModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Product Details</h3>
+                        <button class="modal-close" onclick="closeModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="modalBody">
+                        <!-- Dynamic content loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>
+                <i class="fas fa-info-circle"></i>
+                This tool is for educational purposes. Always respect website terms of service.
+            </p>
+            <p class="copyright">
+                © 2024 Shopify Scraper Pro • Made with <i class="fas fa-heart"></i>
+            </p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
