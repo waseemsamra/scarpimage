@@ -3,6 +3,7 @@ let currentSessionId = null;
 let statusInterval = null;
 let currentData = [];
 let selectedColumns = [];
+let columnMappings = {}; // To store {original: newName}
 
 // DOM Elements
 const urlInput = document.getElementById('urlInput');
@@ -24,9 +25,13 @@ const exportJson = document.getElementById('exportJson');
 const exportImages = document.getElementById('exportImages');
 const stockFilter = document.getElementById('stockFilter');
 const selectColumnsBtn = document.getElementById('selectColumnsBtn');
+const renameColumnsBtn = document.getElementById('renameColumnsBtn');
 const columnsModal = document.getElementById('columnsModal');
 const columnsBody = document.getElementById('columnsBody');
 const applyColumnsBtn = document.getElementById('applyColumnsBtn');
+const renameColumnsModal = document.getElementById('renameColumnsModal');
+const renameColumnsBody = document.getElementById('renameColumnsBody');
+const applyRenameBtn = document.getElementById('applyRenameBtn');
 
 
 // Event Listeners
@@ -43,10 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
     selectColumnsBtn.addEventListener('click', openColumnsModal);
     applyColumnsBtn.addEventListener('click', applyColumnSelection);
 
+    renameColumnsBtn.addEventListener('click', openRenameModal);
+    applyRenameBtn.addEventListener('click', applyColumnRenaming);
+
     stockFilter.addEventListener('change', () => displayResults(currentData));
 
     urlInput.addEventListener('input', () => {
-        // Enable scrape button if there is any text in the URL input
         scrapeBtn.disabled = urlInput.value.trim() === '';
     });
 
@@ -104,7 +111,6 @@ async function startScraping() {
         return;
     }
 
-    // Reset from previous runs
     resetUI();
     setControlsState(false);
 
@@ -190,11 +196,11 @@ async function loadScrapedData() {
     }
 }
 
-
 // UI Update Functions
 function resetUI() {
     currentData = [];
     selectedColumns = [];
+    columnMappings = {};
     resultsBody.innerHTML = `<tr><td colspan="6" class="empty-state"><div class="spinner"></div><p>Starting to scrape...</p></td></tr>`;
     updateProgressUI({ progress: 0, message: 'Initiating...', status: 'idle', total_products: 0, scraped_count: 0, images_downloaded: 0 });
 }
@@ -292,20 +298,24 @@ async function openColumnsModal() {
 
     try {
         const response = await fetch(`/api/scrape/${currentSessionId}/columns`);
-        const columns = await response.json();
+        let columns = await response.json();
         
         if (columns.error) throw new Error(columns.error);
-        
-        const preferredOrder = ['title', 'price', 'currency', 'sku', 'vendor', 'availability', 'url'];
-        const sortedColumns = [...new Set([...preferredOrder, ...columns.sort()])];
 
+        // Create a reverse mapping for display
+        const reverseMappings = Object.entries(columnMappings).reduce((acc, [orig, curr]) => ({ ...acc, [curr]: orig }), {});
 
-        columnsBody.innerHTML = sortedColumns.map(col => `
+        columnsBody.innerHTML = columns.map(col => {
+            const displayCol = columnMappings[col] || col;
+            const originalCol = reverseMappings[displayCol] || displayCol;
+
+            return `
             <div class="checkbox-group">
-                <input type="checkbox" id="col-${col}" value="${col}" ${selectedColumns.includes(col) || selectedColumns.length === 0 ? 'checked' : ''}>
-                <label for="col-${col}">${col}</label>
+                <input type="checkbox" id="col-${originalCol}" value="${originalCol}" ${selectedColumns.includes(originalCol) || selectedColumns.length === 0 ? 'checked' : ''}>
+                <label for="col-${originalCol}">${displayCol}</label>
             </div>
-        `).join('');
+        `}).join('');
+
     } catch (error) {
         columnsBody.innerHTML = '<p class="error-text">Could not load columns.</p>';
         showToast(error.message, 'error');
@@ -320,6 +330,49 @@ function applyColumnSelection() {
         showToast(`${selectedColumns.length} columns selected for export.`, 'success');
     }
     closeModal('columnsModal');
+}
+
+async function openRenameModal() {
+    if (!currentSessionId || currentData.length === 0) {
+        showToast('No data to rename columns for.', 'warning');
+        return;
+    }
+
+    renameColumnsBody.innerHTML = '<div class="spinner"></div>';
+    openModal('renameColumnsModal');
+
+    try {
+        const response = await fetch(`/api/scrape/${currentSessionId}/columns`);
+        const columns = await response.json();
+
+        if (columns.error) throw new Error(columns.error);
+
+        const columnsToRename = selectedColumns.length > 0 ? selectedColumns : columns;
+
+        renameColumnsBody.innerHTML = columnsToRename.map(col => `
+            <div class="input-group">
+                <label for="rename-${col}">${col}</label>
+                <input type="text" id="rename-${col}" data-original-name="${col}" value="${columnMappings[col] || col}">
+            </div>
+        `).join('');
+    } catch (error) {
+        renameColumnsBody.innerHTML = '<p class="error-text">Could not load columns for renaming.</p>';
+        showToast(error.message, 'error');
+    }
+}
+
+function applyColumnRenaming() {
+    const inputs = renameColumnsBody.querySelectorAll('input[type="text"]');
+    const newMappings = {};
+    inputs.forEach(input => {
+        const originalName = input.dataset.originalName;
+        if (input.value && input.value !== originalName) {
+            newMappings[originalName] = input.value;
+        }
+    });
+    columnMappings = newMappings;
+    showToast('Column names updated for export.', 'success');
+    closeModal('renameColumnsModal');
 }
 
 function openModal(modalId) {
@@ -348,10 +401,11 @@ async function exportData(format) {
         return;
     }
 
-    const body = { format };
-    if (selectedColumns.length > 0) {
-        body.columns = selectedColumns;
-    }
+    const body = {
+        format,
+        columns: selectedColumns.length > 0 ? selectedColumns : undefined,
+        column_mappings: columnMappings
+    };
 
     try {
         const response = await fetch(`/api/export/${currentSessionId}`, {
@@ -413,6 +467,7 @@ function setControlsState(enabled, hasData = false) {
     exportJson.disabled = !hasData;
     exportImages.disabled = !hasData;
     selectColumnsBtn.disabled = !hasData;
+    renameColumnsBtn.disabled = !hasData;
 
     scrapeBtn.innerHTML = enabled ? '<i class="fas fa-play"></i> Start Scraping' : '<span class="spinner"></span> Scraping...';
 }
@@ -468,6 +523,9 @@ const dynamicStyles = `
     .status-idle { background: rgba(158, 158, 158, 0.2); color: #424242; border: 1px solid #9e9e9e; }
     .checkbox-group { display: block; margin-bottom: 10px; }
     .checkbox-group input { margin-right: 10px; }
+    .input-group { display: flex; align-items: center; margin-bottom: 15px; }
+    .input-group label { min-width: 150px; text-align: right; margin-right: 15px; }
+    .input-group input { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
 `;
 const styleSheet = document.createElement("style");
 styleSheet.textContent = dynamicStyles;

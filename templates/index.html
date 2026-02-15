@@ -105,7 +105,7 @@
                     <div class="stat-card">
                         <i class="fas fa-box-open"></i>
                         <div class="stat-content">
-                            <div class="stat-value" id="productsCount">0</div>
+                            <div class'="stat-value" id="productsCount">0</div>
                             <div class="stat-label">Products</div>
                         </div>
                     </div>
@@ -143,6 +143,9 @@
                     <div class="export-buttons">
                         <button id="selectColumnsBtn" class="btn btn-secondary" disabled>
                             <i class="fas fa-check-square"></i> Select Columns
+                        </button>
+                        <button id="renameColumnsBtn" class="btn btn-secondary" disabled>
+                            <i class="fas fa-edit"></i> Rename Columns
                         </button>
                         <button id="exportCsv" class="btn btn-success" disabled>
                             <i class="fas fa-file-csv"></i> CSV
@@ -224,6 +227,25 @@
                 <div class="modal-footer">
                     <button class="btn btn-secondary" onclick="closeModal('columnsModal')">Cancel</button>
                     <button id="applyColumnsBtn" class="btn btn-primary">Apply</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rename Columns Modal -->
+        <div class="modal" id="renameColumnsModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Rename Columns</h3>
+                    <button class="modal-close" onclick="closeModal('renameColumnsModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="renameColumnsBody">
+                    <!-- Input fields for renaming will be dynamically inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeModal('renameColumnsModal')">Cancel</button>
+                    <button id="applyRenameBtn" class="btn btn-primary">Apply</button>
                 </div>
             </div>
         </div>

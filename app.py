@@ -193,55 +193,50 @@ def create_app():
         
         export_format = request.json.get('format', 'csv')
         selected_columns = request.json.get('columns')
+        column_mappings = request.json.get('column_mappings', {})
         
         try:
             df = pd.DataFrame(session.data)
             
-            # First, expand the image_urls column into separate columns
+            # Expand the image_urls column
             if 'image_urls' in df.columns:
                 image_urls_df = df['image_urls'].apply(pd.Series)
                 image_urls_df = image_urls_df.rename(columns = lambda x : f'image_url_{x + 1}')
                 df = pd.concat([df.drop(['image_urls'], axis=1), image_urls_df], axis=1)
 
+            # Filter columns
             if selected_columns:
                 valid_columns = [col for col in selected_columns if col in df.columns]
                 df = df[valid_columns]
             
+            # Rename columns
+            if column_mappings:
+                df.rename(columns=column_mappings, inplace=True)
+            
+            # Prepare file in-memory
+            output = io.BytesIO()
+            filename = f'scraped_products_{session_id}.{export_format}'
+            mimetype = 'application/octet-stream'
+
             if export_format == 'csv':
-                filename = f'scraped_products_{session_id}.csv'
-                filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-                df.to_csv(filepath, index=False, encoding='utf-8')
-                
-                return send_file(
-                    filepath,
-                    as_attachment=True,
-                    download_name=filename,
-                    mimetype='text/csv'
-                )
-                
+                df.to_csv(output, index=False, encoding='utf-8')
+                mimetype = 'text/csv'
             elif export_format == 'excel':
-                filename = f'scraped_products_{session_id}.xlsx'
-                filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-                df.to_excel(filepath, index=False)
-                
-                return send_file(
-                    filepath,
-                    as_attachment=True,
-                    download_name=filename,
-                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                )
-                
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Products')
+                mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             elif export_format == 'json':
-                filename = f'scraped_products_{session_id}.json'
-                filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-                df.to_json(filepath, orient='records', indent=4)
-                
-                return send_file(
-                    filepath,
-                    as_attachment=True,
-                    download_name=filename,
-                    mimetype='application/json'
-                )
+                df.to_json(output, orient='records', indent=4)
+                mimetype = 'application/json'
+
+            output.seek(0)
+            
+            return send_file(
+                output,
+                as_attachment=True,
+                download_name=filename,
+                mimetype=mimetype
+            )
                 
         except Exception as e:
             return jsonify({'error': str(e)}), 500

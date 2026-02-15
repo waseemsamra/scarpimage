@@ -48,23 +48,23 @@ class ShopifyScraper:
             
             for indicator in shopify_indicators:
                 if indicator.lower() in content:
-                    return True
+                    return True, "This appears to be a Shopify store."
             
             # Check for Shopify in headers
             if 'shopify' in response.headers.get('server', '').lower():
-                return True
+                return True, "This appears to be a Shopify store."
                 
             # Check for Shopify in meta tags
             soup = BeautifulSoup(response.content, 'html.parser')
             generator = soup.find('meta', {'name': 'generator'})
             if generator and 'shopify' in generator.get('content', '').lower():
-                return True
+                return True, "This appears to be a Shopify store."
                 
-            return False
+            return False, "This does not appear to be a Shopify store, but scraping will still be attempted."
             
         except Exception as e:
             print(f"Error checking Shopify: {e}")
-            return False
+            return False, f"Error occurred while validating the URL: {e}"
     
     def extract_product_links(self, url, max_links=50):
         """Extract product URLs from a Shopify collection or search page"""
@@ -299,9 +299,9 @@ class ShopifyScraper:
                 
                 # More robust patterns to find product JSON
                 patterns = [
-                    r'var\s+meta\s*=\s*{\s*"product"\s*:\s*({.*?})\s*};',
-                    r'new\s+Shopify\.OptionSelectors\([^,]+,\s*{\s*product\s*:\s*({.*?}),.*?}\);',
-                    r'"product":\s*({.*)'
+                    r'var\\s+meta\\s*=\\s*{\\s*"product"\\s*:\\s*({.*?})\\s*};',
+                    r'new\\s+Shopify\\.OptionSelectors\\([^,]+,\\s*{\\s*product\\s*:\\s*({.*?}),.*?}\\);',
+                    r'"product":\\s*({.*)'
                 ]
                 
                 for pattern in patterns:
@@ -360,7 +360,7 @@ class ShopifyScraper:
                 el = soup.select_one(selector)
                 if el:
                     price_text = el.get_text(strip=True)
-                    price_match = re.search(r'[\d,]+(?:\.\d{2})?', price_text)
+                    price_match = re.search(r'[\\d,]+(?:\\.\\d{2})?', price_text)
                     if price_match:
                         product_data['price'] = price_match.group(0).replace(',','')
                         break
@@ -430,7 +430,7 @@ class ShopifyScraper:
         # Format price
         if product_data['price']:
             # Remove currency symbols and format
-            price = re.sub(r'[^\d.]', '', str(product_data['price']))
+            price = re.sub(r'[^\\d.]', '', str(product_data['price']))
             try:
                 product_data['price'] = float(price)
             except:
