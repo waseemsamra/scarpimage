@@ -66,7 +66,7 @@ class ShopifyScraper:
             print(f"Error checking Shopify: {e}")
             return False, f"Error occurred while validating the URL: {e}"
     
-    def extract_product_links(self, url, max_links=50):
+    def extract_product_links(self, url, max_links=1000):
         """Extract product URLs from a Shopify collection or search page"""
         try:
             print(f"Extracting product links from: {url}")
@@ -128,25 +128,35 @@ class ShopifyScraper:
         """Scrape additional pagination pages"""
         links = set()
         
-        for page in range(2, 6):  # Try up to 5 pages
+        # Adjust the range to scrape more pages, e.g., up to 20 pages for 1000 products
+        for page in range(2, 21):  # Try up to 20 pages
             try:
                 page_url = f"{base_url}?page={page}" if '?' not in base_url else f"{base_url}&page={page}"
                 response = self.session.get(page_url, timeout=self.timeout)
                 soup = BeautifulSoup(response.content, 'html.parser')
                 
+                page_links = set()
                 for link in soup.find_all('a', href=True):
                     href = link['href']
                     if '/products/' in href and '#' not in href and '?' not in href:
                         full_url = urljoin(base_url, href)
-                        links.add(full_url)
+                        page_links.add(full_url)
                 
+                if not page_links:
+                    break # Stop if no new links are found
+
+                links.update(page_links)
+
                 if len(links) >= max_links:
                     break
                     
-                # Check if there's a next page
+                # Check if there's a next page link; if not, it might be the last page
                 next_page = soup.find('a', string=re.compile(r'next', re.I))
                 if not next_page:
-                    break
+                     # Also check for common class names for next page links
+                    next_page = soup.select_one('.pagination .next, a[rel="next"]')
+                    if not next_page:
+                        break
                     
             except Exception as e:
                 print(f"Error scraping page {page}: {e}")
@@ -154,7 +164,7 @@ class ShopifyScraper:
         
         return list(links)[:max_links]
     
-    def find_products_on_page(self, url, max_links=50):
+    def find_products_on_page(self, url, max_links=1000):
         """Find products on any Shopify page"""
         try:
             response = self.session.get(url, timeout=self.timeout)

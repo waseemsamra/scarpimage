@@ -108,7 +108,7 @@ def create_app():
             session = ScrapingSession(session_id)
             scraping_sessions[session_id] = session
             
-            max_products = data.get('max_products', 50)
+            max_products = data.get('max_products', 1000)
             delay = data.get('delay', 1)
             download_images = data.get('download_images', False)
             
@@ -215,7 +215,7 @@ def create_app():
             
             # Prepare file in-memory
             output = io.BytesIO()
-            filename = f'scraped_products_{session_id}.{export_format}'
+            filename = f"scraped_products_{session_id}.{export_format}"
             mimetype = 'application/octet-stream'
 
             if export_format == 'csv':
